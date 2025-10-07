@@ -40,7 +40,7 @@
 #define DELAY_10_SECONDS	10000UL
 #define DELAY_1_SECOND		1000UL
 #define DELAY_100_MS		100UL
-#define DELAY_150_MS		150UL
+#define DELAY_150_MS		300UL
 #define TIMER_CHECK_THRESHOLD	9
 /*-----------------------------------------------------------*/
 
@@ -167,27 +167,31 @@ int main( void )
 /*-----------------------------------------------------------*/
 static void print_one( void *pvParameters )
 {
-	const TickType_t x150ms = pdMS_TO_TICKS( DELAY_150_MS );
-	for(int i=50; i > 50; i--)
+	const TickType_t x100ms = pdMS_TO_TICKS( DELAY_100_MS );
+	for(int j =0 ; j < 5 ;j++)
 	{
-		vTaskDelay( x150ms );
-		xQueueSend( xQueue,			/* The queue being written to. */
-						HWstring, /* The address of the data being sent. */
-						0UL );			/* The block time. */
-		xil_printf( "%2d\n", i);
+		vTaskDelay( x100ms );
+
+		for (int i = 0; i<100; i++){
+			xil_printf( "task1: %d\r\n", i );
+		}
+
+
 	}
 }
 
 static void print_two( void *pvParameters )
 {
-	const TickType_t x100ms = pdMS_TO_TICKS( DELAY_100_MS );
-	for(int i=0; i < 50; i++)
+	const TickType_t x1second = pdMS_TO_TICKS( DELAY_150_MS );
+	for(int j =0 ; j < 5 ;j++)
 	{
-		vTaskDelay( x100ms );
-		xQueueSend( xQueue,			/* The queue being written to. */
-						HWstring, /* The address of the data being sent. */
-						0UL);			/* The block time. */
-		xil_printf( "%2d\n",i);
+		vTaskDelay( x1second );
+
+
+		for (int i = 0; i<100; i++){
+			xil_printf( "task2: %d\r\n", i );
+		}
+
 	}
 }
 
