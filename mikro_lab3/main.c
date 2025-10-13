@@ -10,7 +10,7 @@
 #define Q_VALUE (3.14159265358979323846 / 2.0)
 
 static TaskHandle_t xOneTaskHandle = NULL;
-
+static TaskHandle_t xtest = NULL;
 
 
 XTmrCtr globTimerInstance;
@@ -42,6 +42,12 @@ double CalculateRange(int start_count) {
     return sum;
 }
 
+void test(void *pvParameters){
+	xil_printf("tekst z pod taska\r\n");
+	vTaskDelete(NULL);
+}
+
+
 void FreeRTOS_Calc(void *pvParameters) {
 portTASK_USES_FLOATING_POINT();
 
@@ -52,20 +58,20 @@ xil_printf("param = %d\r\n", param);
 
 for (int i=1; i<=param ; i++){
 	xTaskCreate(test,
-	    			"MainCalc",
+	    			"test",
 					configMINIMAL_STACK_SIZE * 4,
-					(void *)&param,
+					NULL,
 					tskIDLE_PRIORITY + 1,
-					&xOneTaskHandle);
-	
+					&xtest);
+	xil_printf("task utworzony?\r\n");
+
+
 }
 
-
-
-
-for(;;);
 vTaskDelete(NULL);
 }
+
+
 
 
 int main(void)
@@ -95,7 +101,7 @@ int main(void)
     xil_printf("\r\n");
 
     //ile taskow
-    int param = 1;
+    int param = 5;
 
     xil_printf("Starting FreeRTOS scheduler\r\n");
     xTaskCreate(FreeRTOS_Calc,
