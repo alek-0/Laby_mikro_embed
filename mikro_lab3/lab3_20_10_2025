@@ -6,7 +6,7 @@
 #include <math.h>
 #include <limits.h>
 
-#define N_OF_TASKS 3
+#define N_OF_TASKS 5
 #define M_VALUE 1000000
 #define Q_VALUE (3.14159265358979323846 / 2.0)
 
@@ -15,7 +15,9 @@ static TaskHandle_t xCountingTask = NULL;
 
 XTmrCtr globTimerInstance;
 
-int number_of_tasks = 3;
+int number_of_tasks = 5;
+
+volatile int doneCount = 0;
 
 typedef struct {
     double result;
@@ -25,40 +27,27 @@ typedef struct {
 
 ParamStr taskData[N_OF_TASKS];
 
-int tab[3] = {1,2,3};
+int tab[6] = {1,2,3,4,5,6};
 
 // Print double with 8 digits precision
 void printDouble8(double fval);
 
 
 double CalculateRange(int start_count, int end_count) {
-	xil_printf("In calcRagne start:%d end:%d\r\n",start_count, end_count);
     double sum = 0.0;
     for (int i = start_count; i <= end_count; i++) {
         sum += (sin(i * Q_VALUE)/i);
     }
-    xil_printf("In calcRagne sum:");
-    printDouble8(sum);
-    xil_printf("\r\n");
     return sum;
 }
 
 void CountingTask(void *pvParameters){
+	portTASK_USES_FLOATING_POINT();
 
-
-	int n = (int)pvParameters;
-
-	xil_printf("tasknumber: %d\r\n", n);
-	xil_printf("task startIndex: %d\r\n", taskData[n-1].startIndex);
-	xil_printf("task endIndex: %d\r\n", taskData[n-1].endIndex);
-	int a = taskData[n-1].startIndex;
-	int b = taskData[n-1].endIndex;
-	xil_printf("task:%d | a=%d | b=%d \r\n",n,a,b);
+	int n = *(int *)pvParameters;
 	taskData[n-1].result = 0.0;
-	taskData[n-1].result = CalculateRange(a,b);
-	xil_printf("task result: ");
-	printDouble8(taskData[n-1].result);
-	xil_printf("\r\n");
+	taskData[n-1].result = CalculateRange(taskData[n-1].startIndex,taskData[n-1].endIndex);
+	xTaskNotifyGive(xOneTaskHandle);
 	vTaskDelete(NULL);
 }
 
@@ -67,15 +56,41 @@ void FreeRTOS_Calc(void *pvParameters) {
 portTASK_USES_FLOATING_POINT();
 
 
+XTmrCtr_Reset(&globTimerInstance, 0);
+   XTmrCtr_Start(&globTimerInstance, 0);
+for(int i=0; i<number_of_tasks; i++) {
+	taskData[i].result = 0.0;
+	taskData[i].startIndex = i * M_VALUE/number_of_tasks + 1;
+	taskData[i].endIndex = (i+1) * M_VALUE/number_of_tasks;
+}
+
 
 for (int i=1; i<=number_of_tasks ; i++){
 	xTaskCreate(CountingTask,
 	    			"counting Task",
 					configMINIMAL_STACK_SIZE * 4,
-					(void *)tab[i-1],
-					tskIDLE_PRIORITY + 1,
+					(void *)&tab[i-1],
+					tskIDLE_PRIORITY + 2,
 					&xCountingTask);
 }
+
+for (int i = 0; i < number_of_tasks; i++) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+}
+
+double wynik_1 = 0.0;
+for (int i=1; i<=number_of_tasks ; i++){
+	wynik_1 += taskData[i-1].result;
+}
+
+	u32 t1 = XTmrCtr_GetValue(&globTimerInstance, 0);
+    double seconds_1 = (double)t1 / (double)XPAR_TMRCTR_0_CLOCK_FREQ_HZ;
+
+    xil_printf("Wynik obliczen z taskami:");
+        printDouble8(wynik_1);
+        xil_printf("  Czas:");
+        printDouble8(seconds_1);
+        xil_printf("\r\n");
 
 vTaskDelete(NULL);
 }
@@ -113,36 +128,13 @@ int main(void)
     // Koniec obliczen bez taskow
 
 
-
-
-
-
-    int number_of_tasks = 3;
-    xil_printf("Obliczanie zakresow takskow:\r\n");
-    for(int i=0; i<number_of_tasks; i++) {
-    	taskData[i].result = 0.0;
-    	taskData[i].startIndex = i * M_VALUE/number_of_tasks + 1;
-    	taskData[i].endIndex = (i+1) * M_VALUE/number_of_tasks;
-
-    }
-
-
     xTaskCreate(FreeRTOS_Calc,
     			"MainCalc",
 				configMINIMAL_STACK_SIZE * 4,
 				NULL,
-				tskIDLE_PRIORITY + 4,
+				tskIDLE_PRIORITY +3,
 				&xOneTaskHandle);
     vTaskStartScheduler();
-
-
-    xil_printf("Print result z maina0:\r\n");
-    printDouble8(taskData[0].result);
-    xil_printf("Print result z maina1:\r\n");
-    printDouble8(taskData[1].result);
-    xil_printf("Print result z maina2:\r\n");
-    printDouble8(taskData[2].result);
-
     return 0;
 }
 
@@ -162,5 +154,4 @@ void printDouble8(double fval) {
     if (sign) xil_printf("-");
     xil_printf("%d.%08d", integerPart, fractionalPart);
 }
-
 
