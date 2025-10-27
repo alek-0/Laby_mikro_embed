@@ -1,0 +1,73 @@
+#include "xparameters.h"
+#include "xil_printf.h"
+#include "xil_types.h"
+#include "xil_io.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "timers.h"
+#include "xgpio.h"
+
+#define GPIO_DEVICE_ID XPAR_GPIO_0_DEVICE_ID
+#define CHANNEL 1
+
+XGpio Gpio;
+
+SemaphoreHandle_t xSemaphore[4];
+
+int checkswitch(int i) {
+	int sw = XGpio_DiscreteRead(&Gpio,CHANNEL);
+	return (sw >> i) & 1;
+}
+
+void Thread (void *param) {
+
+	int id = (int)(intptr_t)param;
+
+	for(;;){
+		if (xSemaphoreTake(xSemaphore[id], pdMS_TO_TICKS(10))==1)
+		{
+
+		if (checkswitch(id)){
+			xil_printf("SW%d ON\r\n",id);
+			if(id < 3){
+				xSemaphoreGive(xSemaphore[id+1]);
+			}
+		} else {
+		xil_printf("SW%d OFF\r\n",id);
+		}
+
+		if(id<3){
+			xSemaphoreTake(xSemaphore[id+1], 0);
+				}
+		}
+
+	vTaskDelay(pdMS_TO_TICKS(200));
+	}
+}
+
+int main(void)
+{
+	XGpio_Initialize(&Gpio, GPIO_DEVICE_ID);
+	XGpio_SetDataDirection(&Gpio, CHANNEL, 0xF);
+
+
+	for(int i=0; i<4; i++){
+		xSemaphore[i] = xSemaphoreCreateBinary();
+	}
+
+	xSemaphoreGive(xSemaphore[0]);
+
+	for(int i = 0; i<4; i++){
+		char name[10];
+		sprintf(name, "T%d", i);
+		xTaskCreate(Thread, name, configMINIMAL_STACK_SIZE + 128, (void *)(intptr_t)i, tskIDLE_PRIORITY + 1, NULL);
+	}
+
+	vTaskStartScheduler();
+
+    return 0;
+}
